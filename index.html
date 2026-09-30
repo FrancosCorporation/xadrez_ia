@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xadrez com IA — FrancosCorporation</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Xadrez com IA</h1>
+  <div id="barra">
+    <label for="modo">Modo:</label>
+    <select id="modo">
+      <option value="pvp">Jogador × Jogador</option>
+      <option value="pc" selected>Jogador × PC</option>
+      <option value="impossivel">Impossível (IA profunda)</option>
+    </select>
+    <button id="reiniciar" type="button">Reiniciar</button>
+  </div>
+  <div id="status">Vez das brancas</div>
+  <div id="tabuleiro" aria-label="Tabuleiro de xadrez"></div>
+  <div id="placar">Brancas 0 × 0 Pretas</div>
+  <div id="rodape">Minimax com poda alfa-beta rodando no browser — sem dependência externa · FrancosCorporation</div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

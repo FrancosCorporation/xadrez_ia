@@ -1,0 +1,16 @@
+{
+  "name": "xadrez-ia",
+  "version": "1.0.0",
+  "description": "Xadrez com IA (minimax com poda alfa-beta) - jogo no browser, sem dependencia externa",
+  "main": "server.js",
+  "type": "module",
+  "license": "MIT",
+  "author": "Rodolfo Franco (FrancosCorporation)",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test \"test/*.mjs\""
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
