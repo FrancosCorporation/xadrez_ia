@@ -153,13 +153,15 @@ export function jogadaMinimax(estado, profundidade = 2) {
 // ITERATIVE DEEPENING com orçamento de tempo: aumenta a profundidade até o tempo acabar,
 // e devolve o melhor lance da última profundidade COMPLETA (o que a UI usa).
 // Entre lances quase equivalentes (≤ 20 centipeões), sorteia — evita shuffle/repetição infinita.
-export function escolheJogada(estado, tempoMs = 1000) {
+export function escolheJogada(estado, tempoMs = 1000, opts = {}) {
+  const profMax = opts.profMax ?? 64;
+  const ruido = opts.ruido ?? 0;
   const movs = movimentosLegais(estado);
   if (!movs.length) return null;
   const t0 = Date.now();
   let melhor = movs[0];
   let scores = new Map(); // chave from-to → score da última profundidade completa
-  for (let prof = 1; ; prof++) {
+  for (let prof = 1; prof <= profMax; prof++) {
     const scoresProf = new Map();
     let melhorV = -Infinity, melhorDaProf = null;
     let alpha = -Infinity;
@@ -178,6 +180,14 @@ export function escolheJogada(estado, tempoMs = 1000) {
     if (!completo || Date.now() - t0 > tempoMs) break;
   }
   const melhorScore = scores.get(melhor.from + '-' + melhor.to) || 0;
+  if (ruido > 0) {
+    let melhorComRuido = null, melhorV = -Infinity;
+    for (const cand of movs) {
+      const v = (scores.get(cand.from + '-' + cand.to) ?? -Infinity) + (Math.random() * 2 - 1) * ruido;
+      if (v > melhorV) { melhorV = v; melhorComRuido = cand; }
+    }
+    return melhorComRuido ?? melhor;
+  }
   const candidatos = movs.filter(m => {
     const v = scores.get(m.from + '-' + m.to);
     return v !== undefined && v >= melhorScore - 20;

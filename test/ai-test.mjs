@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { estadoInicial, movimentosLegais, aplicar, estadoJogo, tipoDe } from '../js/chess-rules.js';
-import { jogadaMinimax, avaliar } from '../js/ai-minimax.js';
+import { jogadaMinimax, escolheJogada, avaliar } from '../js/ai-minimax.js';
 
 function monta(fenSimplificado) {
   const map = { P: 'wP', N: 'wN', B: 'wB', R: 'wR', Q: 'wQ', K: 'wK', p: 'bP', n: 'bN', b: 'bB', r: 'bR', q: 'bQ', k: 'bK' };
@@ -113,4 +113,15 @@ test('IA escapa do mate em 1 quando há escape', () => {
   const novo = aplicar(s3, m);
   // o rei captura a torre (a8->h8) ou foge — o jogo continua (não é mate)
   assert.notEqual(estadoJogo(novo), 'mate', 'a IA escapou do mate');
+});
+
+
+test('modos de dificuldade: fácil (raso + ruído) e difícil (3s) devolvem lance legal', () => {
+  const s = estadoInicial();
+  const facil = escolheJogada(s, 150, { profMax: 1, ruido: 90 });
+  assert.ok(facil, 'fácil devolve lance');
+  assert.ok(movimentosLegais(s).some(x => x.from === facil.from && x.to === facil.to), 'fácil: lance legal');
+  const dificil = escolheJogada(s, 300, { profMax: 64 });
+  assert.ok(dificil, 'difícil devolve lance');
+  assert.ok(movimentosLegais(s).some(x => x.from === dificil.from && x.to === dificil.to), 'difícil: lance legal');
 });
