@@ -16,7 +16,7 @@ npm start          # sobe o servidor estático em http://localhost:3344
 npm test           # 18 testes das regras + da IA (node --test)
 ```
 
-Ou abra o `index.html` direto no navegador: o jogo é 100% estático, sem etapa de build.
+**Jogue online agora**: https://francoscorporation.github.io/xadrez_ia/ — o jogo é 100% estático (servidor só serve arquivos). Para rodar local use `npm start` (abrir o index.html direto via file:// não carrega os módulos ES do navegador).
 
 ## Como foi testado
 
