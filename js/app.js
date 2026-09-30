@@ -2,16 +2,17 @@
 // O IA roda no browser (Minimax com poda). Promoção: dialog com escolha de peça.
 
 import { estadoInicial, movimentosLegais, aplicar, estadoJogo, corDe, tipoDe, estaEmCheck, BRANCO, PRETO } from './chess-rules.js';
-import { jogadaMinimax } from './ai-minimax.js';
+import { escolheJogada } from './ai-minimax.js';
 
 const GLIFOS = { wK: '♔', wQ: '♕', wR: '♖', wB: '♗', wN: '♘', wP: '♙', bK: '♚', bQ: '♛', bR: '♜', bB: '♝', bN: '♞', bP: '♟' };
 
 let estado = estadoInicial();
 let legais = movimentosLegais(estado);
 let selecionada = -1;
-let modo = 'pc'; // 'pvp' | 'pc' (profundidade 2) | 'impossivel' (profundidade 3)
+let modo = 'pc'; // 'pvp' | 'pc' (800ms) | 'impossivel' (2500ms)
 let placar = { w: 0, b: 0 }; // contador de vitórias por sessão
 let animando = false;
+let historico = {}; // posição → contagem (regra da repetição tripla)
 
 const $tab = document.getElementById('tabuleiro');
 const $status = document.getElementById('status');
@@ -92,7 +93,14 @@ function joga(m) {
   selecionada = -1;
   legais = movimentosLegais(estado);
   const fim = estadoJogo(estado);
+  // repetição tripla: a mesma posição 3× = empate
+  const pos = estado.tabuleiro.map(p => p || '.').join('') + estado.turno;
+  historico[pos] = (historico[pos] || 0) + 1;
   pinta();
+  if (historico[pos] >= 3) {
+    avisa('Empate por repetição (a mesma posição 3 vezes).');
+    return;
+  }
   if (fim === 'mate') {
     const vencedor = estado.turno === 'w' ? 'Pretas' : 'Brancas';
     placar[estado.turno === 'w' ? 'b' : 'w']++;
@@ -104,12 +112,17 @@ function joga(m) {
   avisa(estado.turno === 'w' ? 'Vez das brancas' : 'Vez das pretas');
   if (estado.turno === PRETO && modo !== 'pvp') {
     animando = true;
+    avisa('A IA está pensando...');
     setTimeout(() => {
-      const prof = modo === 'impossivel' ? 3 : 2;
-      const m = jogadaMinimax(estado, prof);
+      const tempo = modo === 'impossivel' ? 2500 : 800; // iterative deepening: quanto mais tempo, mais fundo
+      const m2 = escolheJogada(estado, tempo);
       animando = false;
-      if (m) joga(m);
-    }, 350); // deixa a UI pintar o lance do humano antes do PC pensar
+      if (m2) joga(m2);
+      else {
+        const fim2 = estadoJogo(estado);
+        avisa(fim2 === 'mate' ? 'Xeque-mate!' : 'Empate.');
+      }
+    }, 120);
   }
 }
 
@@ -124,6 +137,7 @@ function reinicia() {
   legais = movimentosLegais(estado);
   selecionada = -1;
   animando = false;
+  historico = {};
   avisa(estado.turno === 'w' ? 'Vez das brancas' : 'Vez das pretas');
   pinta();
 }
