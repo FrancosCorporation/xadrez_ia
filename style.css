@@ -44,6 +44,7 @@ button:hover, select:hover { background: #35354a; }
   background: rgba(42, 42, 58, .5); border: 1px solid #444; border-radius: 6px; padding: 8px 12px;
 }
 #llm-box label { color: #9ad1ff; }
+#llm-box[hidden] { display: none; }
 #llm-status { color: #ffd166; font-size: 0.85rem; min-width: 120px; }
 @media (max-width: 560px) {
   #tabuleiro { grid-template-columns: repeat(8, 11vw); grid-template-rows: repeat(8, 11vw); }
