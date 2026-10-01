@@ -15,13 +15,23 @@
       <option value="facil">IA Fácil</option>
       <option value="medio" selected>IA Média</option>
       <option value="dificil">IA Difícil</option>
+      <option value="llm">LLM (roda no navegador)</option>
     </select>
     <button id="reiniciar" type="button">Reiniciar</button>
+  </div>
+  <div id="llm-box" hidden>
+    <label for="llm-modelo">Modelo:</label>
+    <select id="llm-modelo">
+      <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC" selected>Qwen2.5-0.5B — padrão (~350MB, na sua placa)</option>
+      <option value="SmolLM2-360M-Instruct-q4f16_1-MLC">SmolLM2-360M — leve (~250MB, instantâneo)</option>
+    </select>
+    <button id="llm-carregar" type="button">Carregar modelo</button>
+    <span id="llm-status"></span>
   </div>
   <div id="status">Vez das brancas</div>
   <div id="tabuleiro" aria-label="Tabuleiro de xadrez"></div>
   <div id="placar">Brancas 0 × 0 Pretas</div>
-  <div id="rodape">Minimax com poda alfa-beta rodando no browser — sem dependência externa · FrancosCorporation</div>
+  <div id="rodape">Minimax com poda alfa-beta rodando no browser — sem dependência externa · <strong>LLM: a IA roda DENTRO do navegador na sua placa de vídeo (WebGPU) — baixa o modelo 1ª vez, depois 100% offline</strong> (se o WebGPU faltar, o minimax joga) · FrancosCorporation</div>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

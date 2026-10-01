@@ -3,16 +3,18 @@
 
 import { estadoInicial, movimentosLegais, aplicar, estadoJogo, corDe, tipoDe, estaEmCheck, BRANCO, PRETO } from './chess-rules.js';
 import { escolheJogada } from './ai-minimax.js';
+import { escolheViaLLM, carregaWebLLM, placaWebGPU, PADRAO as LLM_PADRAO } from './llm.js';
 
 const GLIFOS = { wK: '♔', wQ: '♕', wR: '♖', wB: '♗', wN: '♘', wP: '♙', bK: '♚', bQ: '♛', bR: '♜', bB: '♝', bN: '♞', bP: '♟' };
 
 let estado = estadoInicial();
 let legais = movimentosLegais(estado);
 let selecionada = -1;
-let modo = 'medio'; // 'pvp' | 'facil' | 'medio' | 'dificil'
+let modo = 'medio'; // 'pvp' | 'facil' | 'medio' | 'dificil' | 'llm'
 let placar = { w: 0, b: 0 }; // contador de vitórias por sessão
 let animando = false;
 let historico = {}; // posição → contagem (regra da repetição tripla)
+let sessao = 0; // guarda anti-race: reiniciar no meio do "pensando" não deixa a IA jogar no jogo novo
 
 const $tab = document.getElementById('tabuleiro');
 const $status = document.getElementById('status');
@@ -20,6 +22,43 @@ const $placar = document.getElementById('placar');
 const $selModo = document.getElementById('modo');
 const $reiniciar = document.getElementById('reiniciar');
 const $dialogPromo = document.getElementById('promo-dialog');
+const $llmBox = document.getElementById('llm-box');
+const $llmModelo = document.getElementById('llm-modelo');
+const $llmCarregar = document.getElementById('llm-carregar');
+const $llmStatus = document.getElementById('llm-status');
+
+function cfgLLM() {
+  return { modelo: $llmModelo.value || LLM_PADRAO.modelo };
+}
+function salvaCfgLLM() {
+  try { localStorage.setItem('xadrez-llm', JSON.stringify({ modelo: $llmModelo.value })); } catch {}
+}
+try { // recupera o que tava salvo
+  const s = JSON.parse(localStorage.getItem('xadrez-llm') || '{}');
+  if (s.modelo) $llmModelo.value = s.modelo;
+} catch {}
+function sincronizaPainelLLM() {
+  $llmBox.hidden = modo !== 'llm';
+}
+// carrega o modelo NA PLACA do jogador (1ª vez baixa ~350MB e fica no cache; depois é 100% local)
+async function carregaModeloLLM() {
+  const placa = await placaWebGPU();
+  if (!placa) {
+    $llmStatus.textContent = '⚠ WebGPU desligado — ative UMA vez: chrome://flags/#enable-unsafe-webgpu → Enabled → reabra o navegador (fica pra sempre). Funciona até SEM placa de vídeo: roda na CPU (SwiftShader)';
+    return;
+  }
+  $llmStatus.textContent = 'placa ' + placa.vendor + (placa.arquitetura ? '/' + placa.arquitetura : '') + ' — preparando… 0%';
+  try {
+    await carregaWebLLM(cfgLLM().modelo, p => {
+      $llmStatus.textContent = 'baixando modelo… ' + Math.round(p * 100) + '%';
+    });
+    $llmStatus.textContent = '✔ modelo pronto na placa (' + placa.vendor + ') — roda 100% local';
+  } catch (e) {
+    $llmStatus.textContent = '⚠ ' + (e && e.message ? e.message : e);
+  }
+}
+$llmCarregar.addEventListener('click', carregaModeloLLM);
+$llmModelo.addEventListener('change', () => { salvaCfgLLM(); if (modo === 'llm') carregaModeloLLM(); });
 
 function constroiTabuleiro() {
   $tab.innerHTML = '';
@@ -112,10 +151,31 @@ function joga(m) {
   avisa(estado.turno === 'w' ? 'Vez das brancas' : 'Vez das pretas');
   if (estado.turno === PRETO && modo !== 'pvp') {
     animando = true;
+    const idSessao = sessao;
+    if (modo === 'llm') {
+      avisa('IA LLM pensando…');
+      escolheViaLLM(estado, { lance: 1 }, cfgLLM(), {
+        progresso: p => { if (sessao === idSessao) $llmStatus.textContent = 'baixando modelo… ' + Math.round(p * 100) + '%'; },
+      }).then(r => {
+        if (sessao !== idSessao || !animando) return; // reiniciado no meio
+        animando = false;
+        if (r.origem === 'llm') avisa('IA LLM: ' + r.motivo);
+        else avisa('LLM fora — ' + r.motivo + ' (minimax joga)');
+        const m2 = r.lance || escolheJogada(estado, 800); // fallback: minimax assume
+        if (m2) joga(m2);
+        else {
+          const fim2 = estadoJogo(estado);
+          avisa(fim2 === 'mate' ? 'Xeque-mate!' : 'Empate.');
+        }
+      });
+      return;
+    }
     avisa('A IA está pensando...');
     setTimeout(() => {
-      const tempo = modo === 'impossivel' ? 2500 : 800; // iterative deepening: quanto mais tempo, mais fundo
-      const m2 = escolheJogada(estado, tempo);
+      if (sessao !== idSessao) return; // reiniciado no meio
+      const cfg = modo === 'facil' ? { tempo: 150, opts: { profMax: 1, ruido: 90 } }
+                : modo === 'dificil' ? { tempo: 3000 } : { tempo: 800 };
+      const m2 = escolheJogada(estado, cfg.tempo, cfg.opts);
       animando = false;
       if (m2) joga(m2);
       else {
@@ -128,11 +188,15 @@ function joga(m) {
 
 $selModo.addEventListener('change', () => {
   modo = $selModo.value;
+  sincronizaPainelLLM();
+  if (modo === 'llm') carregaModeloLLM(); // começa a baixar o modelo já, no ato de escolher o modo
+  else $llmStatus.textContent = '';
   reinicia();
 });
 $reiniciar.addEventListener('click', reinicia);
 
 function reinicia() {
+  sessao++;
   estado = estadoInicial();
   legais = movimentosLegais(estado);
   selecionada = -1;
@@ -143,4 +207,12 @@ function reinicia() {
 }
 
 constroiTabuleiro();
+sincronizaPainelLLM();
 reinicia();
+
+window.__xadrez = {
+  get estado() { return estado; },
+  get legais() { return legais; },
+  get fase() { return animando ? 'ia' : 'humano'; },
+  get modo() { return modo; },
+};

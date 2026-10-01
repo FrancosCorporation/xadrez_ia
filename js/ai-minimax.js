@@ -150,6 +150,28 @@ export function jogadaMinimax(estado, profundidade = 2) {
   return melhor;
 }
 
+// menu de candidatos avaliados (modo LLM): cada lance legal com o score do minimax raso,
+// ordenado do melhor pro pior e limitado (a abertura tem ~20 lances — prompt precisa ser curto)
+export function candidatosAvaliados(estado, opts = {}) {
+  const prof = opts.profundidade ?? 2;
+  const max = opts.max ?? 18;
+  const movs = movimentosLegais(estado);
+  if (!movs.length) return [];
+  return movs
+    .map(m => ({ m, v: -busca(aplicar(estado, m), Math.max(0, prof - 1), -Infinity, Infinity) }))
+    .sort((a, b) => b.v - a.v)
+    .slice(0, max)
+    .map(c => ({
+      from: c.m.from,
+      to: c.m.to,
+      promo: c.m.promo || null,
+      ep: !!c.m.ep,
+      roque: c.m.roque || null,
+      captura: !!(estado.tabuleiro[c.m.to] && tipoDe(estado.tabuleiro[c.m.to]) !== 'K'),
+      score: c.v,
+    }));
+}
+
 // ITERATIVE DEEPENING com orçamento de tempo: aumenta a profundidade até o tempo acabar,
 // e devolve o melhor lance da última profundidade COMPLETA (o que a UI usa).
 // Entre lances quase equivalentes (≤ 20 centipeões), sorteia — evita shuffle/repetição infinita.
