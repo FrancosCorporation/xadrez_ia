@@ -6,7 +6,7 @@ import { estadoInicial, movimentosLegais, aplicar } from '../js/chess-rules.js';
 import { candidatosAvaliados } from '../js/ai-minimax.js';
 import {
   montaPrompt, extraiEscolha, validaEscolha, escolheViaLLM,
-  carregaWebLLM, placaWebGPU, PADRAO, MODELOS,
+  carregaWebLLM, carregaLLM, motorEscolhido, MODELO_CPU, placaWebGPU, PADRAO, MODELOS,
 } from '../js/llm.js';
 
 test('montaPrompt: tabuleiro compacto + candidatos com score + instrução de JSON', () => {
@@ -168,4 +168,70 @@ test('carregaWebLLM fora do navegador: erro claro de WebGPU (sem rede, sem servi
 test('placaWebGPU: sem navigator.gpu no Node → null (modo minimax)', async () => {
   const p = await placaWebGPU();
   assert.equal(p, null);
+});
+
+// --- motor: o modo LLM NUNCA depende de placa de vídeo (GPU acelera; CPU/RAM é o fallback) ---
+
+test('carregaLLM: sem WebGPU → motor CPU (RAM do sistema) — o modo LLM nunca fica indisponível', async () => {
+  let gpuTentada = false;
+  const r = await carregaLLM({ modelo: PADRAO.modelo }, null, {
+    placa: null,
+    carregaGPU: async () => { gpuTentada = true; throw new Error('WebGPU indisponível neste navegador'); },
+    carregaCPU: async () => 'motor-cpu',
+  });
+  assert.equal(r.tipo, 'cpu');
+  assert.equal(r.eng, 'motor-cpu');
+  assert.equal(gpuTentada, false, 'sem placa nem tenta a GPU');
+});
+
+test('carregaLLM: com placa → GPU (WebLLM) é o caminho normal, CPU não é chamado', async () => {
+  const r = await carregaLLM({}, null, {
+    placa: { vendor: 'teste' },
+    carregaGPU: async () => 'motor-gpu',
+    carregaCPU: async () => { throw new Error('CPU não devia ser chamado'); },
+  });
+  assert.equal(r.tipo, 'gpu');
+  assert.equal(r.eng, 'motor-gpu');
+  assert.equal(r.placa.vendor, 'teste');
+});
+
+test('carregaLLM: placa existe mas WebGPU quebra → cai no CPU na sequência', async () => {
+  const r = await carregaLLM({}, null, {
+    placa: { vendor: 'teste' },
+    carregaGPU: async () => { throw new Error('placa WebGPU não ativa (veja o README)'); },
+    carregaCPU: async () => 'motor-cpu',
+  });
+  assert.equal(r.tipo, 'cpu');
+  assert.equal(r.eng, 'motor-cpu');
+});
+
+test('carregaLLM: falha de download/redes na GPU NÃO cai no CPU (não duplica o download)', async () => {
+  await assert.rejects(() => carregaLLM({}, null, {
+    placa: { vendor: 'teste' },
+    carregaGPU: async () => { throw new Error('falha ao baixar o modelo'); },
+    carregaCPU: async () => 'motor-cpu',
+  }), /falha ao baixar/, 'erro real de rede é repassado, não mascarado');
+});
+
+test('carregaLLM: cfg.motor "gpu" não tem fallback silencioso; cfg "cpu" força a CPU mesmo com placa', async () => {
+  await assert.rejects(() => carregaLLM({ motor: 'gpu' }, null, {
+    placa: null,
+    carregaCPU: async () => 'motor-cpu',
+  }), /WebGPU/);
+  const r = await carregaLLM({ motor: 'cpu' }, null, {
+    placa: { vendor: 'teste' },
+    carregaGPU: async () => { throw new Error('não devia'); },
+    carregaCPU: async () => 'motor-cpu',
+  });
+  assert.equal(r.tipo, 'cpu', 'usuário pode escolher rodar só na CPU');
+});
+
+test('motorEscolhido: regra pura — sem placa = CPU (RAM do sistema), com placa = GPU', () => {
+  assert.equal(motorEscolhido(null), 'cpu');
+  assert.equal(motorEscolhido({ vendor: 'x' }), 'gpu');
+});
+
+test('MODELO_CPU: mesmo Qwen2.5-0.5B, quantização GGUF q4_k_m (caminho do llama.cpp na CPU)', () => {
+  assert.equal(MODELO_CPU.repo, 'Qwen/Qwen2.5-0.5B-Instruct-GGUF');
+  assert.equal(MODELO_CPU.arquivo, 'qwen2.5-0.5b-instruct-q4_k_m.gguf');
 });

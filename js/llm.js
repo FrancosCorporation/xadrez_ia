@@ -1,8 +1,9 @@
-// IA de LLM 100% local — o modelo roda DENTRO do navegador (WebGPU + WebLLM), junto com o JS do jogo.
-// ZERO servidor / ZERO API: os pesos são baixados UMA vez (~350MB), ficam no cache do navegador e a
-// inferência acontece na placa de vídeo (RAM/VRAM) da máquina do jogador.
+// IA de LLM 100% local — o modelo roda DENTRO do navegador, junto com o JS do jogo.
+// ZERO servidor / ZERO API: os pesos são baixados UMA vez (~350MB), ficam no cache do navegador.
+// REGRA: o LLM NUNCA depende de placa de vídeo. Com WebGPU ele acelera na GPU (WebLLM, rápido);
+// SEM WebGPU o MESMO modelo roda na RAM/CPU do jogador (llama.cpp em WebAssembly — wllama).
 // O LLM não inventa lance: escolhe ENTRE os candidatos que o MINIMAX já avaliou (scores no prompt).
-// Resposta inválida/fora da lista/falha de WebGPU → volta o minimax clássico (o jogo nunca trava).
+// Resposta inválida/fora da lista/falha dos motores → volta o minimax clássico (o jogo nunca trava).
 
 import { candidatosAvaliados } from './ai-minimax.js';
 
@@ -126,17 +127,85 @@ export function descarregaLLM() {
   motor = null;
   motorModelo = null;
   if (m) { try { m.unload(); } catch {} }
+  const c = cpu;
+  cpu = null;
+  cpuModelo = null;
+  if (c) { try { c.unload(); } catch {} }
+}
+
+// --- motor CPU: llama.cpp em WebAssembly (wllama) — roda na RAM do sistema, sem placa nenhuma ---
+// Mesmo Qwen2.5-0.5B em GGUF q4_k_m (~350MB), baixa 1ª vez (HuggingFace), fica no cache do navegador.
+export const MODELO_CPU = {
+  repo: 'Qwen/Qwen2.5-0.5B-Instruct-GGUF',
+  arquivo: 'qwen2.5-0.5b-instruct-q4_k_m.gguf',
+};
+
+let cpu = null;
+let cpuModelo = null;
+let carregandoCPU = null;
+
+// qual motor este navegador deve usar: placa → GPU; sem placa → CPU (RAM do sistema)
+export function motorEscolhido(placa) { return placa ? 'gpu' : 'cpu'; }
+
+export async function carregaCPU(onProgress) {
+  if (cpu) return cpu;
+  if (carregandoCPU) return carregandoCPU;
+  carregandoCPU = (async () => {
+    const { Wllama, LoggerWithoutDebug } = await import('./vendor/wllama/index.js');
+    const wasm = new URL('./vendor/wllama/wasm/wllama.wasm', import.meta.url).href;
+    const w = new Wllama(
+      { default: wasm },
+      { allowOffline: true, suppressNativeLog: true, logger: LoggerWithoutDebug },
+    );
+    const nucleos = Math.max(1, Math.min(6, ((globalThis.navigator && navigator.hardwareConcurrency) || 2) - 1));
+    await w.loadModelFromHF(
+      { repo: MODELO_CPU.repo, file: MODELO_CPU.arquivo },
+      {
+        n_ctx: 1024,
+        n_threads: nucleos,
+        progressCallback: p => onProgress && onProgress(p && p.total ? p.loaded / p.total : 0),
+      },
+    );
+    cpu = w;
+    cpuModelo = MODELO_CPU.repo;
+    return w;
+  })();
+  try { return await carregandoCPU; } finally { carregandoCPU = null; }
+}
+
+export function cpuCarregado() { return cpuModelo; }
+
+// escolhe o motor: WebGPU (WebLLM) se houver placa, senão CPU/RAM (wllama).
+// cfg.motor força 'gpu' ou 'cpu'; cfg.motor === 'gpu' + falha → estoura (sem fallback silencioso).
+// deps (testes): { placa, carregaGPU, carregaCPU } injeta fontes fakes (sem rede, sem navegador).
+export async function carregaLLM(cfg = {}, onProgress, deps = {}) {
+  const preferido = cfg.motor || 'auto';
+  const onde = deps.placa !== undefined ? deps.placa : await placaWebGPU();
+  if (preferido !== 'cpu') {
+    try {
+      if (!onde) throw new Error('WebGPU indisponível neste navegador');
+      const eng = deps.carregaGPU ? await deps.carregaGPU(cfg.modelo || PADRAO.modelo) : await carregaWebLLM(cfg.modelo || PADRAO.modelo, onProgress);
+      return { eng, tipo: 'gpu', placa: onde };
+    } catch (e) {
+      const msg = String((e && e.message) || e);
+      const semGPU = /WebGPU|placa|adaptador|adapter/i.test(msg);
+      if (preferido === 'gpu' || !semGPU) throw e; // falha de download/redes: não mascara
+      // sem placa (ou WebGPU quebrado) → o modelo roda na RAM do sistema
+    }
+  }
+  const eng = deps.carregaCPU ? await deps.carregaCPU() : await carregaCPU(onProgress);
+  return { eng, tipo: 'cpu', placa: null };
 }
 
 async function chatLocal(prompt, onProgress, cfg) {
-  const eng = await carregaWebLLM((cfg && cfg.modelo) || PADRAO.modelo, onProgress);
-  const r = await eng.chat.completions.create({
-    messages: [{ role: 'system', content: SISTEMA }, { role: 'user', content: prompt }],
-    temperature: 0,
-    max_tokens: 300,
-  });
+  const { eng, tipo } = await carregaLLM(cfg || {}, onProgress);
+  const msgs = [{ role: 'system', content: SISTEMA }, { role: 'user', content: prompt }];
+  const r = tipo === 'cpu'
+    ? await eng.createChatCompletion({ messages: msgs, temperature: 0, max_tokens: 300 })
+    : await eng.chat.completions.create({ messages: msgs, temperature: 0, max_tokens: 300 });
   const texto = r && r.choices && r.choices[0] && r.choices[0].message
     ? (r.choices[0].message.content || '') : '';
+  globalThis.__motorLLM = tipo; // hook de debug/E2E: 'gpu' | 'cpu'
   // hook de debug/E2E: deixa a última resposta crua visível pro teste
   globalThis.__ultimaRespLLM = texto;
   return texto;

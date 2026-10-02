@@ -5,7 +5,7 @@ import { join, extname } from 'node:path';
 
 const PORTA = process.env.PORT || 3344;
 const RAIZ = new URL('.', import.meta.url).pathname;
-const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.wasm': 'application/wasm' };
 
 createServer((req, res) => {
   let caminho = decodeURIComponent(req.url.split('?')[0]);

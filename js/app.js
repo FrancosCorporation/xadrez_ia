@@ -3,7 +3,7 @@
 
 import { estadoInicial, movimentosLegais, aplicar, estadoJogo, corDe, tipoDe, estaEmCheck, BRANCO, PRETO } from './chess-rules.js';
 import { escolheJogada } from './ai-minimax.js';
-import { escolheViaLLM, carregaWebLLM, placaWebGPU, PADRAO as LLM_PADRAO } from './llm.js';
+import { escolheViaLLM, carregaLLM, placaWebGPU, PADRAO as LLM_PADRAO } from './llm.js';
 
 const GLIFOS = { wK: '♔', wQ: '♕', wR: '♖', wB: '♗', wN: '♘', wP: '♙', bK: '♚', bQ: '♛', bR: '♜', bB: '♝', bN: '♞', bP: '♟' };
 
@@ -40,19 +40,20 @@ try { // recupera o que tava salvo
 function sincronizaPainelLLM() {
   $llmBox.hidden = modo !== 'llm';
 }
-// carrega o modelo NA PLACA do jogador (1ª vez baixa ~350MB e fica no cache; depois é 100% local)
+// carrega o modelo: na placa (WebGPU) se houver; senão na RAM/CPU do navegador (1ª vez baixa ~350MB
+// e fica no cache; depois é 100% local) — SEM WebGPU o modo LLM também funciona
 async function carregaModeloLLM() {
   const placa = await placaWebGPU();
-  if (!placa) {
-    $llmStatus.textContent = '⚠ WebGPU desligado — ative UMA vez: chrome://flags/#enable-unsafe-webgpu → Enabled → reabra o navegador (fica pra sempre). Funciona até SEM placa de vídeo: roda na CPU (SwiftShader)';
-    return;
-  }
-  $llmStatus.textContent = 'placa ' + placa.vendor + (placa.arquitetura ? '/' + placa.arquitetura : '') + ' — preparando… 0%';
+  $llmStatus.textContent = placa
+    ? 'placa ' + placa.vendor + (placa.arquitetura ? '/' + placa.arquitetura : '') + ' — preparando… 0%'
+    : 'sem WebGPU — preparando o modo CPU (RAM do seu sistema)… 0%';
   try {
-    await carregaWebLLM(cfgLLM().modelo, p => {
+    const {{ tipo }} = await carregaLLM(cfgLLM(), p => {
       $llmStatus.textContent = 'baixando modelo… ' + Math.round(p * 100) + '%';
     });
-    $llmStatus.textContent = '✔ modelo pronto na placa (' + placa.vendor + ') — roda 100% local';
+    $llmStatus.textContent = tipo === 'gpu'
+      ? '✔ modelo pronto na placa (' + placa.vendor + ') — roda 100% local'
+      : '✔ modelo pronto na CPU (RAM do sistema) — 100% local, qualquer navegador';
   } catch (e) {
     $llmStatus.textContent = '⚠ ' + (e && e.message ? e.message : e);
   }
