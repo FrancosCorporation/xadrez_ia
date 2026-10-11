@@ -8,6 +8,7 @@
   "author": "Rodolfo Franco (FrancosCorporation)",
   "scripts": {
     "start": "node server.js",
+    "check": "node --check server.js && node --check js/erro.js && node --check js/app.js && node --check js/ai-minimax.js && node --check js/chess-rules.js && node --check js/llm.js",
     "test": "node --test \"test/*.mjs\""
   },
   "engines": {

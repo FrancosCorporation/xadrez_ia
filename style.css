@@ -46,6 +46,20 @@ button:hover, select:hover { background: #35354a; }
 #llm-box label { color: #9ad1ff; }
 #llm-box[hidden] { display: none; }
 #llm-status { color: #ffd166; font-size: 0.85rem; min-width: 120px; }
+.aviso-js {
+  max-width: 620px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border: 1px solid #d99b3d;
+  border-radius: 6px;
+  background: #3c3020;
+  color: #ffe0a3;
+  text-align: center;
+}
+#erro-js[hidden] { display: none; }
+.pagina-404 { max-width: 620px; margin: auto; text-align: center; }
+.pagina-404 p { margin-bottom: 20px; color: #ccc; }
+.pagina-404 a { color: #9ad1ff; }
 @media (max-width: 560px) {
   #tabuleiro { grid-template-columns: repeat(8, 11vw); grid-template-rows: repeat(8, 11vw); }
   .casa { font-size: 7.5vw; }

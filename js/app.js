@@ -48,7 +48,7 @@ async function carregaModeloLLM() {
     ? 'placa ' + placa.vendor + (placa.arquitetura ? '/' + placa.arquitetura : '') + ' — preparando… 0%'
     : 'sem WebGPU — preparando o modo CPU (RAM do seu sistema)… 0%';
   try {
-    const {{ tipo }} = await carregaLLM(cfgLLM(), p => {
+    const { tipo } = await carregaLLM(cfgLLM(), p => {
       $llmStatus.textContent = 'baixando modelo… ' + Math.round(p * 100) + '%';
     });
     $llmStatus.textContent = tipo === 'gpu'

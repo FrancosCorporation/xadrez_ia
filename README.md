@@ -45,10 +45,15 @@ chamar uma **LLM de verdade** — mas tudo rodando na sua própria máquina:
 
 ```bash
 npm start          # sobe o servidor estático em http://localhost:3344
-npm test           # 42 testes: regras + IA minimax + LLM (node --test)
+npm run check      # verifica a sintaxe dos arquivos JavaScript do projeto
+npm test           # regras + IA minimax + LLM (node --test)
 ```
 
-**Jogue online agora**: https://francoscorporation.github.io/xadrez_ia/ — o jogo é 100% estático (servidor só serve arquivos). Para rodar local use `npm start` (abrir o index.html direto via file:// não carrega os módulos ES do navegador).
+O servidor local publica somente os arquivos do jogo definidos na allowlist de `server.js`; ele não entrega `.git`, arquivos de configuração, documentação ou testes. Por padrão escuta apenas em `127.0.0.1`. Para disponibilizar na rede local, defina `HOST=0.0.0.0` conscientemente e use uma rede confiável. O modo LLM baixa os pesos do modelo do Hugging Face na primeira utilização.
+
+Também é possível executar em container com `docker build -t xadrez .` e `docker run --rm -p 3344:3344 xadrez`.
+
+**Jogue online agora**: https://francoscorporation.github.io/xadrez_ia/ — o jogo é 100% estático. Para rodar local use `npm start` (abrir o index.html direto via file:// não carrega os módulos ES do navegador).
 
 ## Como foi testado
 

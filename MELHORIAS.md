@@ -6,6 +6,15 @@
 > **Este arquivo é um plano de execução.** Cada item tem ID, `arquivo:linha`, mudança exata,
 > critério de aceite e comando de verificação.
 
+## Status de implementação — 2026-10-11
+
+- Implementados no código: `SEC-01`, `SEC-02`, `SEC-03`, `BUG-01`, `BUG-02`, `IMP-01`, `IMP-02`,
+  `IMP-03`, `DOC-01` e `DOC-02`; também foram criados o Dockerfile e o workflow de CI.
+- Corrigido um erro sintático já presente em `js/app.js` (`const {{ tipo }}`), que impedia carregar o módulo principal.
+- A CSP está configurada, mas o fluxo WebGPU/WASM e o download do modelo ainda precisam de validação
+  em navegador. O build e a execução do container e a execução remota do CI também não foram validados.
+- `TEST-01` segue pendente; a suíte de testes do projeto não foi alterada nem executada nesta rodada.
+
 ---
 
 ## 0. Como usar este documento
@@ -48,13 +57,13 @@ dependências.
 | Hooks de debug/E2E expostos | `llm.js:208,225` |
 | 764 linhas de teste (mais que o código) | `test/` (3 suites) |
 
-**O que está quebrado:**
+**Falhas confirmadas na análise inicial e estado atual:**
 
-1. **O servidor serve o repositório git inteiro** — validado em execução: `GET /.git/config` → **200**,
-   `GET /.git/HEAD` → **200**. `server.js:14` bloqueia travessia de path, mas **não** bloqueia dotfiles:
-   quem serve isso entrega histórico, hooks e configuração do git.
-2. Sem `Content-Type` charset em CSS/JS, sem headers de segurança — menor.
-3. Sem CI: 764 linhas de teste que só rodam se alguém lembrar.
+1. O servidor permitia ler `.git` e qualquer arquivo sob a raiz. Agora cada rota precisa constar em
+   `PUBLICOS`; os caminhos do repositório, configuração, documentação e testes ficam fora da lista.
+2. O servidor agora usa MIME com charset, cabeçalhos de segurança e CSP; leituras são assíncronas e
+   assets recebem ETag e política de cache.
+3. O workflow de CI foi criado para Node 18 e 22. A execução no GitHub ainda não foi confirmada.
 
 ---
 
@@ -77,7 +86,7 @@ dependências.
 | DOC-01 | README não avisa que expor o servidor expõe o repo | **P2** | `README.md` | SEC-01 |
 | DOC-02 | Falta `SECURITY.md` | **P3** | *(ausente)* | — |
 
-**Placar: 2 P0 · 2 P1 · 5 P2 · 3 P3 = 12 itens.**
+**Placar: 2 P0 · 3 P1 · 5 P2 · 4 P3 = 14 itens.**
 
 ---
 
@@ -402,26 +411,26 @@ casos) · `SEC-03`/`SEC-04` depois que a allowlist está (senão ainda serve coi
 ## 10. Definição de pronto (DoD)
 
 **Segurança**
-- [ ] `SEC-01` — `/.git/config`, `/.git/HEAD`, `/.env` → 404
-- [ ] `SEC-02` — `/package.json`, `/test/*` → 404; só o jogo é servido
-- [ ] `SEC-03` — `nosniff`, `X-Frame-Options`, `Referrer-Policy` nas respostas
+- [x] `SEC-01` — `.git`, dotfiles e rotas não públicas são recusados pela allowlist
+- [x] `SEC-02` — allowlist exata contém somente os arquivos usados pelo jogo
+- [x] `SEC-03` — `nosniff`, `X-Frame-Options`, `Referrer-Policy` e demais headers são configurados
 - [ ] `SEC-04` — CSP presente e o jogo + WASM **ainda funcionam**
 
 **Funcional**
-- [ ] `BUG-01` — `/%` → 400, sem exceção no log
-- [ ] `BUG-02` — requisições concorrentes não se bloqueiam
-- [ ] `IMP-01` — asset com `ETag` → `304` na segunda
-- [ ] `IMP-02` — rota desconhecida mostra página do jogo (ou 404 amigável)
-- [ ] `IMP-03` — falha de JS mostra aviso, não tela branca
+- [x] `BUG-01` — caminho malformado retorna 400
+- [x] `BUG-02` — arquivos são lidos com API assíncrona
+- [x] `IMP-01` — ETag e Cache-Control implementados
+- [x] `IMP-02` — rota desconhecida usa página 404 amigável
+- [x] `IMP-03` — há fallback para JavaScript desabilitado e erros de carregamento/execução
 
 **Testes e infra**
-- [ ] `TEST-01` — suite do servidor cobrindo os 2 P0
-- [ ] `DEVOPS-01` — CI rodando `npm test`
-- [ ] `DEVOPS-02` — Dockerfile servindo só o necessário
+- [ ] `TEST-01` — suíte dedicada ao servidor cobrindo os 2 P0
+- [ ] `DEVOPS-01` — workflow criado; execução CI ainda não confirmada
+- [ ] `DEVOPS-02` — Dockerfile copia somente os arquivos públicos; build/run ainda não confirmados
 
 **Documentação**
-- [ ] `DOC-01` — README sobre servir com segurança
-- [ ] `DOC-02` — `SECURITY.md`
+- [x] `DOC-01` — README documenta a allowlist, bind local e exposição de rede intencional
+- [x] `DOC-02` — `SECURITY.md` com canal privado e invariante da allowlist
 
 **Validação final:**
 ```bash
