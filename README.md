@@ -51,7 +51,7 @@ npm test           # regras + IA minimax + LLM (node --test)
 
 O servidor local publica somente os arquivos do jogo definidos na allowlist de `server.js`; ele não entrega `.git`, arquivos de configuração, documentação ou testes. Por padrão escuta apenas em `127.0.0.1`. Para disponibilizar na rede local, defina `HOST=0.0.0.0` conscientemente e use uma rede confiável. O modo LLM baixa os pesos do modelo do Hugging Face na primeira utilização.
 
-Também é possível executar em container com `docker build -t xadrez .` e `docker run --rm -p 3344:3344 xadrez`.
+Também é possível executar em container com `docker build -t xadrez .` e `docker run --rm -p 127.0.0.1:3344:3344 xadrez`. A porta fica acessível apenas na própria máquina; para disponibilizar na rede local, publique a porta conscientemente.
 
 **Jogue online agora**: https://francoscorporation.github.io/xadrez_ia/ — o jogo é 100% estático. Para rodar local use `npm start` (abrir o index.html direto via file:// não carrega os módulos ES do navegador).
 

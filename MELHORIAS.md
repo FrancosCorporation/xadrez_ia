@@ -13,6 +13,7 @@
 - Corrigido um erro sintático já presente em `js/app.js` (`const {{ tipo }}`), que impedia carregar o módulo principal.
 - A CSP está configurada, mas o fluxo WebGPU/WASM e o download do modelo ainda precisam de validação
   em navegador. O build e a execução do container e a execução remota do CI também não foram validados.
+- O exemplo Docker do README publica a porta somente em `127.0.0.1`, em linha com o padrão local do servidor.
 - `TEST-01` segue pendente; a suíte de testes do projeto não foi alterada nem executada nesta rodada.
 
 ---
@@ -321,7 +322,7 @@ dependências.
 - **Aceite:** `docker build` + `docker run` serve o jogo; `.git` nem entra na imagem.
 - **Verificação:**
   ```bash
-  docker build -t xadrez . && docker run --rm -p 3344:3344 xadrez &
+  docker build -t xadrez . && docker run --rm -p 127.0.0.1:3344:3344 xadrez &
   curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3344/index.html   # 200
   ```
 
