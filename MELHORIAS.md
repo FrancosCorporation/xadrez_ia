@@ -446,3 +446,9 @@ kill %1
 
 *Fim do plano. Gerado por leitura direta do código em 2026-10-02. Nenhum item já estava corrigido*
 *— todos apontam para defeitos ainda presentes.*
+
+## Reauditoria da CI — 2026-10-11
+
+- A CI remota `38161603682` passou no job Node 22 e falhou no Node 18 porque `node --test "test/*.mjs"` recebe o glob literal nessa versão; os três arquivos de teste estão rastreados.
+- Node 18 está EOL. Atualizei a engine mínima para Node 22, a matriz para Node 22/24, os GitHub Actions para v7/Node 24 e o runner para `ubuntu-24.04`.
+- Nenhum teste foi adicionado ou executado nesta retomada. A correção de CI foi publicada com `[skip ci]`; validação de browser/container continua pendente.
